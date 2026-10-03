@@ -1,6 +1,6 @@
 # a11y-diff
 
-<!-- Add the GitHub Actions status badge here after the repository is published. -->
+[![CI](https://github.com/HarryCain/a11y-diff/actions/workflows/ci.yml/badge.svg)](https://github.com/HarryCain/a11y-diff/actions/workflows/ci.yml)
 
 `a11y-diff` is a command-line tool that compares two versions of a webpage and
 reports accessibility problems introduced by the newer version.
