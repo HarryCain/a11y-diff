@@ -40,3 +40,44 @@ jobs:
 
       - name: Run all tests
         run: npm test
+
+  action-smoke-test:
+    name: Test the reusable action
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Start sample website
+        run: |
+          python3 -m http.server 4173 --directory examples > /tmp/a11y-diff-server.log 2>&1 &
+          echo $! > /tmp/a11y-diff-server.pid
+
+      - name: Run a11y-diff action
+        id: scan
+        continue-on-error: true
+        uses: ./
+        with:
+          baseline-url: http://127.0.0.1:4173/baseline.html
+          candidate-url: http://127.0.0.1:4173/candidate.html
+          report: reports/action-demo.html
+          artifact-name: action-smoke-test-report
+
+      - name: Verify expected regression result
+        if: ${{ always() }}
+        env:
+          SCAN_OUTCOME: ${{ steps.scan.outcome }}
+          SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+          REPORT_PATH: ${{ steps.scan.outputs.report-path }}
+        run: |
+          test "$SCAN_OUTCOME" = "failure"
+          test "$SCAN_EXIT_CODE" = "1"
+          test -f "$REPORT_PATH"
+          grep -q "button-name" "$REPORT_PATH"
+          grep -q "image-alt" "$REPORT_PATH"
+
+      - name: Stop sample website
+        if: ${{ always() }}
+        run: kill "$(cat /tmp/a11y-diff-server.pid)"

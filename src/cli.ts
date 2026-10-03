@@ -7,18 +7,20 @@ import { parseArgs } from "./args.js";
 import { compareScans } from "./compare.js";
 import { formatComparison, formatScan } from "./format.js";
 import { formatHtmlReport } from "./html-report.js";
+import { formatJsonReport } from "./json-report.js";
 import { scanPage } from "./scanner.js";
 
 const HELP = `a11y-diff - find accessibility regressions between two web pages
 
 Usage:
   a11y-diff <url>
-  a11y-diff <baseline-url> <candidate-url> [--output <file>]
+  a11y-diff <baseline-url> <candidate-url> [--output <file>] [--format html|json]
 
 Examples:
   a11y-diff https://example.com
   a11y-diff https://example.com https://preview.example.com
-  a11y-diff https://example.com https://preview.example.com --output report.html`;
+  a11y-diff https://example.com https://preview.example.com --output report.html
+  a11y-diff https://example.com https://preview.example.com --output report.json --format json`;
 
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
@@ -53,13 +55,13 @@ async function main(): Promise<void> {
 
   if (options.output) {
     const outputPath = resolve(options.output);
+    const report =
+      options.format === "json"
+        ? formatJsonReport(baseline, candidate, comparison)
+        : formatHtmlReport(baseline, candidate, comparison);
     await mkdir(dirname(outputPath), { recursive: true });
-    await writeFile(
-      outputPath,
-      formatHtmlReport(baseline, candidate, comparison),
-      "utf8",
-    );
-    console.log(`\nHTML report: ${outputPath}`);
+    await writeFile(outputPath, report, "utf8");
+    console.log(`\n${options.format.toUpperCase()} report: ${outputPath}`);
   }
 
   if (comparison.introduced.length > 0) {

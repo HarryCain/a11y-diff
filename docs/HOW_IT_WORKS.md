@@ -18,8 +18,8 @@ accessibility regression.
 6. `compare.ts` assigns each issue a key made from its rule ID and CSS target.
 7. The comparison classifies each key as introduced, fixed, or unchanged.
 8. `format.ts` converts the result into readable terminal text.
-9. If `--output` is present, `html-report.ts` creates a standalone webpage and
-   the CLI writes it to disk.
+9. If `--output` is present, the selected HTML or JSON formatter creates the
+   report and the CLI writes it to disk.
 10. The CLI returns exit code `1` if it found a regression.
 
 ## What each file does
@@ -35,10 +35,11 @@ It accepts:
 - One URL to perform a normal scan.
 - Two URLs to perform a regression comparison.
 - `--help` or `-h` to display instructions.
-- `--output <file>` or `-o <file>` to save a comparison as HTML.
+- `--output <file>` or `-o <file>` to save a comparison report.
+- `--format html|json` to choose the report representation.
 
 The CLI is also responsible for creating the report directory and writing the
-finished HTML string to the selected file.
+finished report string to the selected file.
 
 ### `src/args.ts`
 
@@ -90,7 +91,7 @@ might repeatedly search every issue in the other array.
 ### `src/format.ts`
 
 The formatter controls presentation only. Keeping it separate means a future
-HTML or JSON report can be added without changing the scanner or comparison.
+another report format can be added without changing the scanner or comparison.
 
 ### `src/html-report.ts`
 
@@ -102,6 +103,13 @@ Every value originating from a scanned page is HTML-escaped before it enters the
 report. Escaping changes characters such as `<` into `&lt;`, making the browser
 display them as text instead of interpreting them as executable markup. This
 prevents a scanned page from injecting code into its report.
+
+### `src/json-report.ts`
+
+The JSON formatter produces structured data for scripts and CI systems. It
+includes baseline and candidate metadata, summary counts, and complete issue
+objects. `schemaVersion: 1` lets future consumers detect incompatible format
+changes instead of silently interpreting fields incorrectly.
 
 ### `src/compare.test.ts`
 
@@ -179,6 +187,12 @@ expected behavior matched the actual behavior.
 - **Runner:** the temporary computer GitHub provides to execute a workflow.
 - **Job:** a group of steps executed together on one runner.
 - **Step:** one action or shell command inside a job.
+- **Composite action:** a reusable group of workflow steps exposed through one
+  `uses` statement.
+- **Artifact:** a file preserved by a workflow so it can be downloaded after
+  the runner has shut down.
+- **Schema version:** a number identifying the structure of machine-readable
+  data so consumers can handle future changes safely.
 - **`npm ci`:** a clean, reproducible install using the exact lockfile versions;
   it is preferred over `npm install` in automated environments.
 - **Unit test:** a fast test of one small function or module in isolation.
@@ -200,8 +214,7 @@ selector and introduced at the new one. A later version could use additional
 element information to make matching more stable.
 
 Scanning one page does not crawl an entire website. Authentication, screenshots,
-JSON output, and a reusable GitHub Action are future features, not current
-features.
+and stable matching across major page redesigns are future features.
 
 Most importantly, automated accessibility scanning catches only some kinds of
 problems. Human testing remains necessary.
@@ -219,9 +232,24 @@ push or pull request targeting `main`.
   system libraries.
 - `npm run check` performs static TypeScript checking.
 - `npm test` builds the production CLI and runs all unit and end-to-end tests.
+- The smoke-test job consumes `action.yml` through `uses: ./`, verifies the
+  expected regression failure, and checks the uploaded report contents.
 
 The workflow requests only read access to repository contents. A concurrency
 group cancels obsolete runs when newer code is pushed to the same branch.
+
+## Reusable composite action
+
+`action.yml` packages the scanner for other repositories. It defines baseline,
+candidate, report, format, artifact, and upload inputs. The action installs Node
+and Chromium, builds the CLI, runs the comparison, uploads the report, and then
+returns the scanner's original exit code.
+
+The scan step temporarily captures the exit code instead of failing immediately.
+That gives the artifact-upload step a chance to preserve the report before the
+final step marks the workflow as passed or failed. URL and path inputs are passed
+through environment variables and quoted in Bash so their contents are not
+interpreted as shell commands.
 
 ## Interview-ready explanation
 
@@ -231,8 +259,9 @@ group cancels obsolete runs when newer code is pushed to the same branch.
 > normalize axe's nested output into issue objects and match issues using the
 > rule ID and CSS target. That lets the tool distinguish newly introduced,
 > fixed, and unchanged issues. The comparison logic is isolated from browser
-> automation, so it can be unit tested. The tool returns a failing exit code
-> when it detects a regression, which prepares it for CI integration.
+> automation, so it can be unit tested. I packaged it as a composite GitHub
+> Action that uploads the report before returning a failing exit code when it
+> detects a regression.
 
 Likely follow-up questions:
 
@@ -240,7 +269,7 @@ Likely follow-up questions:
 
 Accessibility standards are complex, so the project uses the established
 axe-core engine. The project's original work is orchestration, normalization,
-regression matching, reporting, and eventually CI integration.
+regression matching, reporting, and CI integration.
 
 **Why use a real browser?**
 
@@ -254,5 +283,5 @@ tested without starting a slow browser.
 
 **What would you improve next?**
 
-Add JSON output, more reliable matching, screenshots, and package the scanner as
-a reusable GitHub Action.
+Improve matching across redesigned pages, add screenshots, and support scanning
+authenticated preview deployments.

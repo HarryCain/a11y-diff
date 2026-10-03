@@ -12,7 +12,7 @@
     "build": "npm run clean && tsc --project tsconfig.build.json",
     "check": "tsc --noEmit",
     "test": "npm run build && vitest run",
-    "test:unit": "vitest run src/args.test.ts src/compare.test.ts src/html-report.test.ts src/scanner.test.ts",
+    "test:unit": "vitest run src/args.test.ts src/compare.test.ts src/html-report.test.ts src/json-report.test.ts src/scanner.test.ts",
     "test:integration": "npm run build && vitest run src/cli.integration.test.ts",
     "start": "node dist/cli.js"
   },

@@ -121,4 +121,43 @@ describe("a11y-diff CLI", () => {
     },
     30_000,
   );
+
+  it(
+    "writes a versioned JSON report for automated consumers",
+    async () => {
+      const temporaryDirectory = await mkdtemp(join(tmpdir(), "a11y-diff-test-"));
+      const reportPath = join(temporaryDirectory, "report.json");
+
+      try {
+        const result = await runCli([
+          `${serverUrl}/baseline.html`,
+          `${serverUrl}/candidate.html`,
+          "--output",
+          reportPath,
+          "--format",
+          "json",
+        ]);
+
+        expect(result.code).toBe(1);
+        expect(result.stderr).toBe("");
+        expect(result.stdout).toContain("JSON report:");
+
+        const report = JSON.parse(await readFile(reportPath, "utf8")) as {
+          schemaVersion: number;
+          summary: { introduced: number; passed: boolean };
+          issues: { introduced: Array<{ ruleId: string }> };
+        };
+
+        expect(report.schemaVersion).toBe(1);
+        expect(report.summary).toMatchObject({ introduced: 2, passed: false });
+        expect(report.issues.introduced.map((issue) => issue.ruleId)).toEqual([
+          "button-name",
+          "image-alt",
+        ]);
+      } finally {
+        await rm(temporaryDirectory, { recursive: true, force: true });
+      }
+    },
+    30_000,
+  );
 });

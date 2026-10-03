@@ -14,8 +14,15 @@ describe("parseArgs", () => {
     ).toEqual({
       urls: ["https://current.example.com", "https://preview.example.com"],
       output: "reports/result.html",
+      format: "html",
       help: false,
     });
+  });
+
+  it("reads JSON as an output format", () => {
+    expect(
+      parseArgs(["one", "two", "--output", "report.json", "--format=json"]),
+    ).toMatchObject({ output: "report.json", format: "json" });
   });
 
   it("supports the short and equals forms of output", () => {
@@ -33,6 +40,12 @@ describe("parseArgs", () => {
     );
     expect(() => parseArgs(["one", "two", "--wat"])).toThrow(
       "Unknown option",
+    );
+    expect(() => parseArgs(["one", "two", "--format", "xml"])).toThrow(
+      "Unsupported report format",
+    );
+    expect(() => parseArgs(["one", "two", "--format", "json"])).toThrow(
+      "--format requires --output",
     );
   });
 });

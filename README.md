@@ -13,9 +13,10 @@ find problems; this project focuses on identifying which problems are **new**.
 - Scan one webpage for automatically detectable accessibility issues.
 - Compare a baseline page with a candidate page.
 - Classify issues as introduced, fixed, or unchanged.
-- Generate a portable, styled HTML report.
+- Generate portable HTML reports and versioned JSON reports.
 - Return exit code `1` when the candidate introduces an issue, making the tool
-  suitable for future CI use.
+  suitable for CI use.
+- Run as a reusable GitHub Action and upload the report as an artifact.
 - Validate input and close the browser even when a scan fails.
 
 ## Requirements
@@ -52,6 +53,16 @@ npm start -- \
   https://current.example.com \
   https://preview.example.com \
   --output reports/accessibility.html
+```
+
+Generate a machine-readable JSON report:
+
+```bash
+npm start -- \
+  https://current.example.com \
+  https://preview.example.com \
+  --output reports/accessibility.json \
+  --format json
 ```
 
 During development, run the TypeScript source directly:
@@ -95,6 +106,40 @@ pull requests targeting `main`. GitHub provides a fresh Ubuntu machine that:
 
 The workflow has read-only repository permissions. Its concurrency setting also
 cancels an older run when newer code is pushed to the same branch.
+
+## Reusable GitHub Action
+
+Other repositories can run `a11y-diff` directly in a workflow:
+
+```yaml
+name: Accessibility regression check
+
+on:
+  workflow_dispatch:
+
+jobs:
+  accessibility:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compare production and preview
+        uses: HarryCain/a11y-diff@v1
+        with:
+          baseline-url: https://example.com
+          candidate-url: https://preview.example.com
+          report: reports/accessibility.html
+```
+
+The action installs its runtime, compares the pages, and uploads the report as
+an `a11y-diff-report` workflow artifact. The step passes when no new issues are
+found, fails with exit code `1` for regressions, and fails with exit code `2`
+when the scan itself cannot be completed.
+
+Optional inputs:
+
+- `format`: `html` by default; use `json` for machine-readable output.
+- `report`: output path relative to the consuming repository.
+- `artifact-name`: name shown in the workflow's artifact list.
+- `upload-report`: set to `false` to skip artifact upload.
 
 ## Try the included demo
 
@@ -140,6 +185,9 @@ URLs typed in the terminal
           |
           v
   src/html-report.ts      creates a portable visual report
+          |
+          v
+  src/json-report.ts      creates a versioned data report
 ```
 
 The comparison currently identifies an issue using its axe rule ID plus its

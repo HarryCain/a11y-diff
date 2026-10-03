@@ -1,0 +1,98 @@
+name: a11y-diff
+description: Compare two web pages and fail when the candidate introduces accessibility problems.
+
+inputs:
+  baseline-url:
+    description: URL of the current or known-good webpage.
+    required: true
+  candidate-url:
+    description: URL of the proposed webpage to evaluate.
+    required: true
+  report:
+    description: Report path relative to the consuming repository workspace.
+    required: false
+    default: a11y-diff-report.html
+  format:
+    description: Report format. Supported values are html and json.
+    required: false
+    default: html
+  artifact-name:
+    description: Name of the uploaded report artifact.
+    required: false
+    default: a11y-diff-report
+  upload-report:
+    description: Upload the generated report as a workflow artifact.
+    required: false
+    default: "true"
+
+outputs:
+  report-path:
+    description: Absolute path of the generated report on the runner.
+    value: ${{ steps.scan.outputs.report-path }}
+  exit-code:
+    description: Scanner exit code. 0 passed, 1 found regressions, and 2 indicates an error.
+    value: ${{ steps.scan.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        cache: npm
+        cache-dependency-path: ${{ github.action_path }}/package-lock.json
+
+    - name: Install a11y-diff dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm ci
+
+    - name: Install Chromium and Linux dependencies
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npx playwright install --with-deps chromium
+
+    - name: Build a11y-diff
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: npm run build
+
+    - name: Compare webpages
+      id: scan
+      shell: bash
+      env:
+        BASELINE_URL: ${{ inputs.baseline-url }}
+        CANDIDATE_URL: ${{ inputs.candidate-url }}
+        REPORT_PATH: ${{ inputs.report }}
+        REPORT_FORMAT: ${{ inputs.format }}
+      run: |
+        set +e
+        node "$GITHUB_ACTION_PATH/dist/cli.js" \
+          "$BASELINE_URL" \
+          "$CANDIDATE_URL" \
+          --output "$GITHUB_WORKSPACE/$REPORT_PATH" \
+          --format "$REPORT_FORMAT"
+        scan_exit=$?
+        printf 'exit-code=%s\n' "$scan_exit" >> "$GITHUB_OUTPUT"
+        printf 'report-path=%s\n' "$GITHUB_WORKSPACE/$REPORT_PATH" >> "$GITHUB_OUTPUT"
+        exit 0
+
+    - name: Upload accessibility report
+      if: ${{ always() && inputs.upload-report == 'true' }}
+      uses: actions/upload-artifact@v5
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.scan.outputs.report-path }}
+        if-no-files-found: warn
+
+    - name: Return scanner result
+      if: ${{ always() }}
+      shell: bash
+      env:
+        SCAN_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: exit "${SCAN_EXIT_CODE:-2}"
+
+branding:
+  icon: check-circle
+  color: purple
