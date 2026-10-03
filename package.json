@@ -1,0 +1,37 @@
+{
+  "name": "a11y-diff",
+  "version": "0.1.0",
+  "description": "Compare two web pages and report newly introduced accessibility problems.",
+  "type": "module",
+  "bin": {
+    "a11y-diff": "./dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "clean": "node --eval \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc --project tsconfig.build.json",
+    "check": "tsc --noEmit",
+    "test": "npm run build && vitest run",
+    "test:unit": "vitest run src/args.test.ts src/compare.test.ts src/html-report.test.ts src/scanner.test.ts",
+    "test:integration": "npm run build && vitest run src/cli.integration.test.ts",
+    "start": "node dist/cli.js"
+  },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "playwright",
+    "axe-core",
+    "testing"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "playwright": "^1.63.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
